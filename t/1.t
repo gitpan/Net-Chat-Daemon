@@ -7,4 +7,4 @@ use Test::More tests => 1;
 BEGIN { use_ok('Net::Chat::Daemon') };
 
 # I need to figure out how to ask the user if it's ok to send test
-messages, and to enter a jabber id.
+# messages, and to enter a jabber id.

@@ -82,7 +82,7 @@ prepared to change the name if you upgrade.
 =cut
 
 package Net::Chat::Daemon;
-our $VERSION = "0.1";
+our $VERSION = "0.2";
 
 use strict;
 use Time::HiRes qw(time);
