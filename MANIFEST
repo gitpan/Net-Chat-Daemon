@@ -1,0 +1,8 @@
+Net/Chat/Daemon.pm
+Net/Chat/Jabber.pm
+Makefile.PL
+MANIFEST
+README
+scripts/jserv
+scripts/jabber
+t/1.t
