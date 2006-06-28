@@ -1,4 +1,4 @@
-Net::Chat::Daemon version 0.2
+Net::Chat::Daemon version 0.3
 =============================
 
 Module for setting up a daemon that can be controlled via instant

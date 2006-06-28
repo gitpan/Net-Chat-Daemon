@@ -82,7 +82,7 @@ prepared to change the name if you upgrade.
 =cut
 
 package Net::Chat::Daemon;
-our $VERSION = "0.2";
+our $VERSION = "0.3";
 
 use strict;
 use Time::HiRes qw(time);
@@ -97,7 +97,7 @@ our %scheme_registry = ( 'jabber' => 'Net::Chat::Jabber',
 
 # Internal routine to display a log message depending on the loglevel
 # setting.
-sub log {
+sub _log {
     my $self = shift;
     my $message;
     my $level = 0;
@@ -331,6 +331,13 @@ sub getHandler {
   return $sub;
 }
 
+=item B<showHelp>([$command])
+
+Return a help message listing out all available commands, or detailed
+help on the one command passed in.
+
+=cut
+
 sub showHelp {
   my ($self, $command) = @_;
 
@@ -384,7 +391,7 @@ sub onRequest {
   my ($self, $message) = @_;
   my $body = $message->GetBody();
   my $from = $message->GetFrom();
-  $self->log(1, "[$self->{user}] from($from): $body\n");
+  $self->_log(1, "[$self->{user}] from($from): $body\n");
 
   # Parse the request body into a command and a list of arguments
   my ($cmd, @args) = $body =~ /('(?:\\.|.)*'|"(?:\\.|.)*"|\S+)/g;
@@ -418,16 +425,21 @@ sub onRequest {
     $self->{cxn}->Send($reply);
     return 1;
   } else {
-    $self->log(0, "[$self->{user}] ignoring message: $body");
+    $self->_log(0, "[$self->{user}] ignoring message: $body");
     return;
   }
 }
 
-# Presence unavailable callback - exit if the master exited
+=item B<checkMaster>($sid, $presence)
+
+Internal: presence unavailable callback - exit if the master exited
+
+=cut
+
 sub checkMaster {
   my ($self, $sid, $presence) = @_;
   if ($self->{master} eq $presence->GetFrom("jid")->GetUserID()) {
-    $self->log(0, "[$self->{user}] master terminated, exiting.");
+    $self->_log(0, "[$self->{user}] master terminated, exiting.");
     exit 0;
   }
   return;
@@ -530,15 +542,20 @@ sub waitUntilAllHere {
   }
 }
 
-# Callback used when synchronizing with a bunch of nodes. Notified
-# when someone logs in who we care about.
+=item B<onSyncLogin>($sid, $presence)
+
+Callback used when synchronizing with a bunch of nodes. Notified
+when someone logs in who we care about.
+
+=cut
+
 sub onSyncLogin {
   my ($self, $sid, $presence) = @_;
   my $status = $presence->GetStatus();
   my $show = $presence->GetShow();
   my $from = $presence->GetFrom();
   my $node = $presence->GetFrom("jid")->GetUserID();
-  $self->log(1, "($$) presence from $node: $status ($show)");
+  $self->_log(1, "($$) presence from $node: $status ($show)");
   if ($self->{care_about}{$node} && $self->{waiting}{$node}) {
     delete $self->{waiting}{$node};
     if (0 == keys %{ $self->{waiting} }) {
@@ -549,15 +566,20 @@ sub onSyncLogin {
   return;
 }
 
-# If a node disappears while we are waiting for everyone to gather,
-# then re-set its waiting flag.
+=item B<onSyncLogout>($sid, $presence)
+
+If a node disappears while we are waiting for everyone to gather,
+then re-set its waiting flag.
+
+=cut
+
 sub onSyncLogout {
   my ($self, $sid, $presence) = @_;
   my $status = $presence->GetStatus();
   my $show = $presence->GetShow();
   my $from = $presence->GetFrom();
   my $node = $presence->GetFrom("jid")->GetUserID();
-  $self->log(1, "bye bye from $node: $status ($show)");
+  $self->_log(1, "bye bye from $node: $status ($show)");
   if ($self->{care_about}{$node}) {
     $self->{waiting}{$node} = 1;
     return 1;
@@ -565,15 +587,20 @@ sub onSyncLogout {
   return;
 }
 
-# Watch for 404 errors coming back while waiting for all nodes to be
-# present.
+=item B<onSyncError>($sid, $message)
+
+Watch for 404 errors coming back while waiting for all nodes to be
+present.
+
+=cut
+
 sub onSyncError {
   my ($self, $sid, $msg) = @_;
   my $code = $msg->GetErrorCode();
   return if $code != 404; # do not handle
 
   my $from = $msg->GetFrom();
-  $self->log(0, "[$self->{user}] client $from not found");
+  $self->_log(0, "[$self->{user}] client $from not found");
   my $node = $msg->GetFrom("jid")->GetUserID();
   $self->{lastcheck}{$node} = time();
   return 1;

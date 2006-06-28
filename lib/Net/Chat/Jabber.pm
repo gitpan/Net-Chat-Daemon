@@ -27,7 +27,7 @@ my $DEFAULT_RESOURCE = "default";
 
 # Internal routine to display a log message depending on the loglevel
 # setting.
-sub log {
+sub _log {
     my $self = shift;
     my $message;
     my $level = 0;
@@ -71,7 +71,7 @@ sub new {
   $self->{server} ||= $jid->GetServer;
   $self->{resource} ||= $jid->GetResource();
 
-  $self->log("[$self->{user}] pid=$$");
+  $self->_log("[$self->{user}] pid=$$");
 
   $self->_init_callbacks($app);
 
@@ -102,15 +102,15 @@ sub connect {
                         password => $self->{password},
                         resource => $self->{resource});
   my @result = $self->AuthSend(@identification);
-  $self->log(0, "auth status for $self->{user} ($$): $result[0] - $result[1]");
+  $self->_log(0, "auth status for $self->{user} ($$): $result[0] - $result[1]");
 
   if ($result[0] eq "401") {
     @result = $self->RegisterSend(@identification);
-    $self->log(0, "register status: " . join(" - ", @result));
+    $self->_log(0, "register status: " . join(" - ", @result));
 
     if ($result[0] eq "ok") {
         @result = $self->AuthSend(@identification);
-        $self->log(0, "auth status for $self->{user} ($$): $result[0] - $result[1]");
+        $self->_log(0, "auth status for $self->{user} ($$): $result[0] - $result[1]");
     }
   }
 
@@ -177,7 +177,7 @@ sub _init_callbacks {
       my $from = $error->GetFrom();
       my $subject = $error->GetSubject();
       my $body = $error->GetBody();
-      $self->log(-1, "($$) unnoticed error from $from: ($subject) $body");
+      $self->_log(-1, "($$) unnoticed error from $from: ($subject) $body");
   });
 }
 
@@ -201,7 +201,7 @@ sub post {
   my @args = ();
   push(@args, thread => $options{thread}) if defined $options{thread};
   my $thr = ($options{thread} ? " thr=$options{thread}" : "");
-  $self->log(1, "($self->{user} -> $to$thr) $message");
+  $self->_log(1, "($self->{user} -> $to$thr) $message");
 
   my $msg = new Net::Jabber::Message;
   $msg->SetMessage(to => $to->GetJid("full"),
@@ -238,7 +238,7 @@ sub send_request {
   my ($self, $to, $message, %options) = @_;
   $options{thread} ||= "tid-" . Time::HiRes::time();
   $options{subject} ||= ref($self) . " request";
-  $self->log(1, "($self->{user}) starting transaction with thread $options{thread}");
+  $self->_log(1, "($self->{user}) starting transaction with thread $options{thread}");
   $self->start_transaction($options{thread}, $options{onReply});
   $self->post($to, $message, %options);
 }
@@ -268,15 +268,15 @@ sub request {
 sub _onMessage {
   my ($self, $app, $sid, $message, %extra) = @_;
 
-  $self->log(1, "($$) got message from " . $message->GetFrom() . ": " . $message->GetBody());
+  $self->_log(1, "($$) got message from " . $message->GetFrom() . ": " . $message->GetBody());
 
   # First, check whether it has a thread id of the syntax used for
   # request/reply pairs
   my $thread = $message->GetThread();
   if (defined($thread) && $thread =~ /^tid-/) {
-    $self->log(2, "  found thread $thread");
+    $self->_log(2, "  found thread $thread");
     if (exists $self->{active}{$thread}) {
-      $self->log(2, "  ending current transaction");
+      $self->_log(2, "  ending current transaction");
       my $cb = $self->end_transaction($thread);
       if (UNIVERSAL::isa($cb, 'CODE')) {
         return $cb->($message, $thread, %extra);
@@ -284,11 +284,11 @@ sub _onMessage {
         return $app->onReply($message, $thread, %extra);
       }
     } else {
-      $self->log(2, "  no current transaction, must be request");
+      $self->_log(2, "  no current transaction, must be request");
       return $app->onRequest($message, %extra);
     }
   } else {
-    $self->log(2, "  no thread");
+    $self->_log(2, "  no thread");
     return $app->onMessage($message, %extra);
   }
 }
@@ -321,7 +321,7 @@ sub end_transaction {
     $self->remove_callback('message', $trans_id);
     return $cb;
   } else {
-    $self->log(-1, "tried to end nonexistent transaction '$trans_id'");
+    $self->_log(-1, "tried to end nonexistent transaction '$trans_id'");
     return;
   }
 }
@@ -349,11 +349,11 @@ Wait until no more active transactions are outstanding.
 sub barrier {
   my ($self) = @_;
 
-  $self->log(1, "[$self->{user}] ...pausing...");
+  $self->_log(1, "[$self->{user}] ...pausing...");
   while (1) {
     my $nactive = $self->count_transactions();
     last if $nactive == 0;
-    $self->log(0, "[$self->{user}] ...pausing, $nactive active trans");
+    $self->_log(0, "[$self->{user}] ...pausing, $nactive active trans");
     last if ! defined $self->Process(5);
   }
 }
